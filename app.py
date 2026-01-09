@@ -1,15 +1,14 @@
 import streamlit as st
 import yfinance as yf
 import pandas as pd
-from yfinance.exceptions import YFRateLimitError
 
 # ---------------- PAGE CONFIG ----------------
 st.set_page_config(
-    page_title="Stock Financial Dashboard",
+    page_title="Stock Financial Statements Tool",
     layout="wide"
 )
 
-st.title("Stock Info & Financial Statements Tool")
+st.title("Stock Financial Statements Tool")
 
 # ---------------- USER INPUT ----------------
 col1, col2, col3 = st.columns(3)
@@ -19,7 +18,7 @@ with col1:
 
 with col2:
     period = st.selectbox(
-        "Select Price Duration",
+        "Select Price Duration (Table Only)",
         ["1mo", "3mo", "6mo", "1y", "2y", "5y", "10y", "max"],
         index=3
     )
@@ -55,67 +54,23 @@ def load_financials(symbol, statement_type):
             t.quarterly_cashflow.T
         )
 
-@st.cache_data(ttl=3600)
-def load_basic_info(symbol):
-    t = yf.Ticker(symbol)
-
-    company_name = symbol
-    current_price = "Not Available"
-
-    # ---- FAST INFO (SAFE) ----
-    try:
-        fast = t.fast_info
-        current_price = fast.get("last_price", current_price)
-    except Exception:
-        pass
-
-    # ---- FULL INFO (OPTIONAL) ----
-    try:
-        info = t.info
-        company_name = info.get("longName", company_name)
-    except Exception:
-        pass
-
-    return company_name, current_price
-
 # ---------------- LOAD DATA ----------------
-with st.spinner("Fetching stock data..."):
+with st.spinner("Fetching data..."):
     price_data = load_price(ticker_input, period)
     balance_sheet, income_statement, cash_flow = load_financials(
         ticker_input, statement_type
     )
-    company_name, current_price = load_basic_info(ticker_input)
 
-# ---------------- BASIC STOCK INFO ----------------
-st.subheader("Company Overview")
-
-col_a, col_b = st.columns(2)
-
-with col_a:
-    st.metric(
-        label="Company Name",
-        value=company_name
-    )
-
-with col_b:
-    st.metric(
-        label="Current / Last Closing Price",
-        value=current_price
-    )
-
-# ---------------- PRICE CHART ----------------
-st.subheader("Stock Price")
+# ---------------- PRICE DATA TABLE ONLY ----------------
+st.subheader("Stock Price Data")
 
 if not price_data.empty:
-    st.line_chart(price_data["Close"])
+    st.dataframe(price_data)
 else:
     st.warning("No price data available.")
 
-with st.expander("Show Price Table"):
-    st.dataframe(price_data)
-
 # ---------------- FINANCIAL STATEMENTS ----------------
-st.subheader(" Financial Statements")
+st.subheader("Financial Statements")
 
 tab1, tab2, tab3 = st.tabs(
     ["Balance Sheet", "Income Statement", "Cash Flow"]
@@ -130,5 +85,4 @@ with tab2:
 with tab3:
     st.dataframe(cash_flow)
 
-# ---------------- FOOTER ----------------
-st.caption("Data source: Yahoo Finance (via yfinance)")
+
