@@ -9,7 +9,7 @@ st.set_page_config(
     layout="wide"
 )
 
-st.title("📈 Stock Info & Financial Statements Tool")
+st.title("Stock Info & Financial Statements Tool")
 
 # ---------------- USER INPUT ----------------
 col1, col2, col3 = st.columns(3)
@@ -56,45 +56,27 @@ def load_financials(symbol, statement_type):
         )
 
 @st.cache_data(ttl=3600)
-def load_company_info(symbol):
+def load_basic_info(symbol):
     t = yf.Ticker(symbol)
 
-    data = {
-        "Company Name": "Not Available",
-        "Sector": "Not Available",
-        "Industry": "Not Available",
-        "Market Cap": "Not Available",
-        "Current Price": "Not Available",
-        "52 Week High": "Not Available",
-        "52 Week Low": "Not Available",
-        "Dividend Yield": "Not Available",
-        "PE Ratio": "Not Available",
-    }
+    company_name = symbol
+    current_price = "Not Available"
 
-    # ---------- FAST INFO (SAFE) ----------
+    # ---- FAST INFO (SAFE) ----
     try:
         fast = t.fast_info
-        data["Market Cap"] = fast.get("market_cap")
-        data["Current Price"] = fast.get("last_price")
-        data["52 Week High"] = fast.get("year_high")
-        data["52 Week Low"] = fast.get("year_low")
+        current_price = fast.get("last_price", current_price)
     except Exception:
         pass
 
-    # ---------- FULL INFO (MAY RATE LIMIT) ----------
+    # ---- FULL INFO (OPTIONAL) ----
     try:
         info = t.info
-        data["Company Name"] = info.get("longName", data["Company Name"])
-        data["Sector"] = info.get("sector", data["Sector"])
-        data["Industry"] = info.get("industry", data["Industry"])
-        data["Dividend Yield"] = info.get("dividendYield", data["Dividend Yield"])
-        data["PE Ratio"] = info.get("trailingPE", data["PE Ratio"])
-    except YFRateLimitError:
-        pass
+        company_name = info.get("longName", company_name)
     except Exception:
         pass
 
-    return data
+    return company_name, current_price
 
 # ---------------- LOAD DATA ----------------
 with st.spinner("Fetching stock data..."):
@@ -102,23 +84,27 @@ with st.spinner("Fetching stock data..."):
     balance_sheet, income_statement, cash_flow = load_financials(
         ticker_input, statement_type
     )
-    company_info = load_company_info(ticker_input)
+    company_name, current_price = load_basic_info(ticker_input)
 
-# ---------------- COMPANY INFO ----------------
-st.subheader("🏢 Company Information")
+# ---------------- BASIC STOCK INFO ----------------
+st.subheader("Company Overview")
 
-info_df = pd.DataFrame({
-    "Field": company_info.keys(),
-    "Value": company_info.values()
-})
+col_a, col_b = st.columns(2)
 
-st.table(info_df)
+with col_a:
+    st.metric(
+        label="Company Name",
+        value=company_name
+    )
 
-if company_info["Company Name"] == "Not Available":
-    st.info("Some company details may be temporarily unavailable due to Yahoo Finance limits.")
+with col_b:
+    st.metric(
+        label="Current / Last Closing Price",
+        value=current_price
+    )
 
 # ---------------- PRICE CHART ----------------
-st.subheader("📊 Stock Price")
+st.subheader("Stock Price")
 
 if not price_data.empty:
     st.line_chart(price_data["Close"])
@@ -129,7 +115,7 @@ with st.expander("Show Price Table"):
     st.dataframe(price_data)
 
 # ---------------- FINANCIAL STATEMENTS ----------------
-st.subheader("📄 Financial Statements")
+st.subheader(" Financial Statements")
 
 tab1, tab2, tab3 = st.tabs(
     ["Balance Sheet", "Income Statement", "Cash Flow"]
